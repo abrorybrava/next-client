@@ -1,114 +1,147 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+"use client";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import React, { useState } from "react";
+import { useRouter } from "next/router";
+import { Formik, Field, Form, ErrorMessage } from "formik";
+import { loginSchema } from "@/utils/validationSchema";
+import { NextRequest } from "next/server";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+export default function RootLayout() {
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-export default function Home() {
+  const handleLogin = async (values: { email: string; password: string }) => {
+    const { email, password } = values;
+
+    setLoading(true);
+    setErrorMessage(""); // Reset error message
+
+    try {
+      const response = await fetch("http://localhost:2700/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include", // Pastikan cookies dikirim dan diterima
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.message || "Login failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("data ", data);
+
+      console.log("Login successful, cookies set by server.");
+
+      router.push("/dashboard"); // Redirect ke dashboard
+    } catch (error) {
+      setErrorMessage("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              pages/index.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <section className="section register min-vh-100 d-flex flex-column align-items-center justify-content-center py-4">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-lg-4 col-md-6 d-flex flex-column align-items-center justify-content-center">
+            <div className="d-flex justify-content-center py-4">
+              <a
+                href="index.html"
+                className="logo d-flex align-items-center w-auto"
+              >
+                <img src="assets/img/logo.png" alt="" />
+                <span className="d-none d-lg-block">NiceAdmin</span>
+              </a>
+            </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div className="card mb-3">
+              <div className="card-body">
+                <div className="pt-4 pb-2">
+                  <h5 className="card-title text-center pb-0 fs-4">
+                    Login to Your Account
+                  </h5>
+                  <p className="text-center small">
+                    Enter your email & password to login
+                  </p>
+                </div>
+
+                <Formik
+                  initialValues={{ email: "", password: "" }}
+                  validationSchema={loginSchema}
+                  onSubmit={handleLogin}
+                >
+                  {({ isSubmitting }) => (
+                    <Form className="row g-3 needs-validation">
+                      <div className="col-12">
+                        <label className="form-label">Email</label>
+                        <Field
+                          type="text"
+                          name="email"
+                          className="form-control"
+                          id="yourUsername"
+                          autoComplete="off"
+                        />
+                        <ErrorMessage
+                          name="email"
+                          component="div"
+                          className="alert alert-danger"
+                        />
+                      </div>
+
+                      <div className="col-12">
+                        <label className="form-label">Password</label>
+                        <Field
+                          type="password"
+                          name="password"
+                          className="form-control"
+                          id="yourPassword"
+                        />
+                        <ErrorMessage
+                          name="password"
+                          component="div"
+                          className="alert alert-danger"
+                        />
+                      </div>
+
+                      {errorMessage && (
+                        <div className="col-12">
+                          <div className="alert alert-danger">
+                            {errorMessage}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="col-12">
+                        <button
+                          className="btn btn-primary w-100"
+                          type="submit"
+                          disabled={isSubmitting || loading}
+                        >
+                          {loading ? "Logging in..." : "Login"}
+                        </button>
+                      </div>
+                      <div className="col-12">
+                        <p className="small mb-0">
+                          Don't have an account?{" "}
+                          <a href="/register">Register</a>
+                        </p>
+                      </div>
+                    </Form>
+                  )}
+                </Formik>
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </section>
   );
 }
