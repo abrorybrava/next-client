@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/router";
 import Swal from "sweetalert2";
+import useAuth from "@/utils/useAuth"; // Import the useAuth hook
 
 // Dinamis loading untuk komponen Header, Sidebar, Footer, dan HeaderHref
 const HeaderView = dynamic(() => import("./header"), { ssr: false });
@@ -18,66 +19,51 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { user, deleteAuth } = useAuth();
 
-  useEffect(() => {
-    // Menandai bahwa layout telah selesai dimuat
-    setIsLoaded(true);
-  }, []);
+  const router = useRouter();
 
+  const deleteCookie = (name: string) => {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  };
 
-    const router = useRouter();
-  
-    const deleteCookie = (name: string) => {
-      // Set cookie with an expiration date in the past to delete it
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-    };
-  
-    const getCookieValue = (name: string): string | null => {
-      // Retrieve all cookies as a string
-      const cookieString = document.cookie;
-  
-      // Split cookies by ';' to get individual cookies
-      const cookies = cookieString.split(";");
-  
-      // Search for the cookie that matches the provided name
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.startsWith(name + "=")) {
-          // Extract the token value by slicing the string after '='
-          return cookie.substring(name.length + 1); // Return token value
-        }
+  const getCookieValue = (name: string): string | null => {
+    const cookieString = document.cookie;
+    const cookies = cookieString.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith(name + "=")) {
+        return cookie.substring(name.length + 1);
       }
-  
-      // If cookie is not found, return null
-      return null;
-    };
-  
-    // Function to handle logout
-    const handleLogout = () => {
-      const token = getCookieValue("token");
-      deleteCookie("token");
-      router.push("/");
-    };
-  
-    // Function to show SweetAlert confirmation
-    const showLogoutConfirmation = () => {
-      Swal.fire({
-        title: "Are you sure?",
-        text: "You will be logged out of your session!",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Yes, logout!",
-        cancelButtonText: "Cancel",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          handleLogout(); // Perform logout
-          Swal.fire("Logged Out!", "Your session has been ended.", "success");
-        }
-      });
-    };
+    }
+    return null;
+  };
+
+  const handleLogout = () => {
+    const token = getCookieValue("token");
+    deleteCookie("token");
+    localStorage.removeItem("dataUser"); // Clear the user data from localStorage
+    deleteAuth();
+    router.push("/");
+  };
+
+  const showLogoutConfirmation = () => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "You will be logged out of your session!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, logout!",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleLogout();
+        Swal.fire("Logged Out!", "Your session has been ended.", "success");
+      }
+    });
+  };
 
   return (
     <div>
@@ -154,6 +140,7 @@ export default function RootLayout({
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
           />
+
           <header
             id="header"
             className="header fixed-top d-flex align-items-center"
@@ -169,46 +156,78 @@ export default function RootLayout({
               </a>
               <i className="bi bi-list toggle-sidebar-btn"></i>
             </div>
+
+            {/* Profile button with user's name */}
+            <div className="ms-auto d-flex align-items-center">
+              {user ? (
+                <button className="btn p-0 d-flex align-items-center">
+                  <i
+                    className="bi bi-person-circle"
+                    style={{ fontSize: "1.5rem" }}
+                  ></i>
+                  <span className="ms-2">{user.name} ({user.role.toUpperCase()})</span>
+                </button>
+              ) : (
+                <button className="btn p-0 d-flex align-items-center">
+                  <i
+                    className="bi bi-person-circle"
+                    style={{ fontSize: "1.5rem" }}
+                  ></i>
+                  <span className="ms-2">Profile</span>
+                </button>
+              )}
+              &nbsp; &nbsp; &nbsp;
+            </div>
           </header>
+
           <aside id="sidebar" className="sidebar">
-      <ul className="sidebar-nav" id="sidebar-nav">
-        <li className="nav-item">
-          <a className="nav-link collapsed" href="/dashboard">
-            <i className="bi bi-house"></i>
-            <span>Home</span>
-          </a>
-        </li>
-        <li className="nav-item">
-          <a className="nav-link collapsed" href="/products">
-            <i className="bi bi-book"></i>
-            <span>Product</span>
-          </a>
-        </li>
-        <li className="nav-item">
-          <a className="nav-link collapsed" href="/customers">
-            <i className="bi bi-person"></i>
-            <span>Customers</span>
-          </a>
-        </li>
-        <li className="nav-item">
-          <a className="nav-link collapsed" href="/order-view">
-            <i className="bi bi-bag"></i>
-            <span>Order</span>
-          </a>
-        </li>
-      </ul>
-      <ul className="sidebar-nav" id="sidebar-nav">
-        <li className="nav-item" style={{ cursor: "pointer" }}>
-          <a
-            className="nav-link collapsed"
-            onClick={showLogoutConfirmation} // Show SweetAlert when clicked
-          >
-            <i className="bi bi-box-arrow-left"></i>
-            <span>Logout</span>
-          </a>
-        </li>
-      </ul>
-    </aside>
+            <ul className="sidebar-nav" id="sidebar-nav">
+              <li className="nav-item">
+                <a className="nav-link collapsed" href="/dashboard">
+                  <i className="bi bi-house"></i>
+                  <span>Home</span>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link collapsed" href="/products">
+                  <i className="bi bi-book"></i>
+                  <span>Product</span>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link collapsed" href="/customers">
+                  <i className="bi bi-person"></i>
+                  <span>Customers</span>
+                </a>
+              </li>
+              {user?.role === "admin" && (
+                <li className="nav-item">
+                  <a className="nav-link collapsed" href="/register-admin">
+                    <i className="bi bi-person"></i>
+                    <span>Add Admin</span>
+                  </a>
+                </li>
+              )}
+              <li className="nav-item">
+                <a className="nav-link collapsed" href="/orders">
+                  <i className="bi bi-bag"></i>
+                  <span>Order</span>
+                </a>
+              </li>
+            </ul>
+            <ul className="sidebar-nav" id="sidebar-nav">
+              <li className="nav-item" style={{ cursor: "pointer" }}>
+                <a
+                  className="nav-link collapsed"
+                  onClick={showLogoutConfirmation}
+                >
+                  <i className="bi bi-box-arrow-left"></i>
+                  <span>Logout</span>
+                </a>
+              </li>
+            </ul>
+          </aside>
+
           <main id="main" className="main">
             {children}
           </main>

@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
-import Cookies from "js-cookie"; 
+import { useEffect, useState } from "react";
 
-const useAuth = (): boolean => {
+const useAuth = () => {
+  const [user, setUser] = useState<any>(null);
+
   useEffect(() => {
-    const token = Cookies.get("token"); 
+    // Retrieve user data from localStorage
+    const storedUser = localStorage.getItem("dataUser");
 
-    console.log('Token from cookie:', token);
-
-    if (token) {
-      const now = Date.now();
-    } else {
-      window.location.href = "/";
+    if (storedUser) {
+      setUser(JSON.parse(storedUser)); // Parse and set the user data
     }
   }, []);
 
-  return true;
+  const deleteAuth = () => {
+    setUser(null);
+    localStorage.removeItem("dataUser"); // Optionally clear the data from localStorage as well
+  };
+
+  return { user, deleteAuth };
 };
 
 export default useAuth;

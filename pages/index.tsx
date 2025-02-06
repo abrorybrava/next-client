@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { Formik, Field, Form, ErrorMessage } from "formik";
 import { loginSchema } from "@/utils/validationSchema";
 import { NextRequest } from "next/server";
+import useAuth from "@/utils/useAuth";
 
 export default function RootLayout() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -24,7 +25,7 @@ export default function RootLayout() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // Pastikan cookies dikirim dan diterima
+        credentials: "include", // Ensure cookies are sent and received
       });
 
       const data = await response.json();
@@ -34,12 +35,9 @@ export default function RootLayout() {
         setLoading(false);
         return;
       }
-
-      console.log("data ", data);
-
-      console.log("Login successful, cookies set by server.");
-
-      router.push("/dashboard"); // Redirect ke dashboard
+      localStorage.setItem("dataUser", JSON.stringify(data.data.data));
+      
+      router.push("/dashboard");
     } catch (error) {
       setErrorMessage("Something went wrong. Please try again.");
     } finally {

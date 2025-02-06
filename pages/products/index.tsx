@@ -9,15 +9,21 @@ import "select2/dist/js/select2.min.js";
 import { getCookieValue } from "@/middleware";
 import { productSchema } from "@/utils/validationSchema";
 import Select from "react-select";
+import { formatRupiah } from "@/utils/helpers";
+import ExportToPDFButton from "./export-pdf";
+import ExcelDropdown from "./excel-ddl-button";
 
 interface Product {
   product_id: string;
   product_name: string;
   price: number;
+  product_qty: number;
   category: string;
-  status: number;
+  product_status: number;
   product_price: number;
   categories: Category[];
+  images:[];
+  category_name: string
 }
 
 interface Category {
@@ -151,46 +157,65 @@ export default function ProductsViewResult() {
 
   const handleEditProduct = async (values: {
     product_name: string;
-    price: number;
-    category: string;
+    product_price: number;
+    product_qty: number;
+    product_status: number;
+    categories: number[];
+    product_img?:File[];
   }) => {
     if (!editingProduct) return;
-
+  
     try {
-      const token = getCookieValue();
+      const token = getCookieValue(); // Pastikan fungsi ini bekerja dengan benar untuk mendapatkan token
+      const formData = new FormData();
+
+      // Tambahkan data produk ke FormData
+      formData.append("product_name", values.product_name);
+      formData.append("product_price", values.product_price.toString());
+      formData.append("product_qty", values.product_qty.toString());
+      formData.append("product_status", values.product_status.toString());
+      values.categories.forEach((categoryId) =>
+        formData.append("categories[]", categoryId.toString())
+      );
+
+      // Tambahkan file gambar jika ada
+      if (values.product_img) {
+        values.product_img.forEach((image) => {
+          formData.append("product_img", image);
+        });
+      }
       const res = await fetch(
         `http://localhost:2700/products/${editingProduct.product_id}`,
         {
           method: "PUT",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            customer_name: values.product_name,
-            customer_email: values.price,
-            customer_phone: values.category,
-          }),
+          body:
+            formData,
         }
       );
-
+  
       if (!res.ok) {
-        throw new Error("Failed to edit customer");
+        throw new Error("Failed to edit product");
       }
-
+      console.log(categories)
+  
       const updatedProduct: Product = await res.json();
       setDataProd((prev) =>
         prev.map((prod) =>
           prod.product_id === updatedProduct.product_id ? updatedProduct : prod
         )
       );
-      setSuccessMessage("Customer updated successfully!");
+      setSuccessMessage("Product updated successfully!");
       setShowEditModal(false);
-      await fetchCategories();
+      await fetchProducts();
+      await fetchCategories(); // Pastikan fungsi ini tersedia untuk memperbarui kategori
     } catch (err: any) {
-      setError(err.message || "Failed to edit customer");
+      setError(err.message || "Failed to edit product");
     }
   };
+  
 
   const handleCreateCategory = async (values: { category_name: string }) => {
     try {
@@ -229,6 +254,7 @@ export default function ProductsViewResult() {
 
       setSuccessMessage("Category created successfully!");
       setShowCategoryModal(false);
+      fetchProducts();
     } catch (err: any) {
       // Tangani error secara lebih detail
       setError(
@@ -242,7 +268,7 @@ export default function ProductsViewResult() {
     try {
       const token = getCookieValue();
       const res = await fetch(
-        `http://localhost:2700/customers/${productToDelete}`,
+        `http://localhost:2700/products/${productToDelete}`,
         {
           method: "DELETE",
           headers: {
@@ -296,8 +322,10 @@ export default function ProductsViewResult() {
       const query = searchQuery.toLowerCase();
       return (
         product.product_name.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query) ||
-        product.price.toString().includes(searchQuery)
+        product.categories.some((category) => // Pencarian di nama kategori
+        category.category_name.toLowerCase().includes(query)) ||
+        product.product_price?.toString().includes(query) || 
+        product.product_qty?.toString().includes(query)
       );
     })
     .sort((a, b) => {
@@ -324,6 +352,24 @@ export default function ProductsViewResult() {
     currentPage * itemsPerPage
   );
 
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, setFieldValue: any) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    setFieldValue("images", files);
+
+    // Generate preview URLs
+    const previews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviews(previews);
+
+  };
+
+  useEffect(() => {
+    if (!showCreateModal && !showEditModal) {
+      // Reset previews when both modals are closed
+      setImagePreviews([]);
+    }
+  }, [showCreateModal, showEditModal]);
   return (
     <div className="row">
       <div className="col-lg-12">
@@ -348,6 +394,10 @@ export default function ProductsViewResult() {
                   >
                     Tambah Kategori
                   </Button>
+                  &nbsp;
+                  <ExportToPDFButton/>
+                  &nbsp;
+                  <ExcelDropdown />
                 </div>
                 <div className="col-md-6" style={{ marginBottom: "20px" }}>
                   <input
@@ -380,11 +430,19 @@ export default function ProductsViewResult() {
                           (sortOrder === "asc" ? "↑" : "↓")}
                       </th>
                       <th
-                        onClick={() => handleSort("price")}
+                        onClick={() => handleSort("product_price")}
                         style={{ cursor: "pointer" }}
                       >
                         Price{" "}
-                        {sortColumn === "price" &&
+                        {sortColumn === "product_price" &&
+                          (sortOrder === "asc" ? "↑" : "↓")}
+                      </th>
+                      <th
+                        onClick={() => handleSort("product_qty")}
+                        style={{ cursor: "pointer" }}
+                      >
+                        Quantity{" "}
+                        {sortColumn === "product_qty" &&
                           (sortOrder === "asc" ? "↑" : "↓")}
                       </th>
                       <th>Status</th>
@@ -397,14 +455,14 @@ export default function ProductsViewResult() {
                         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                         <td>{product.product_name}</td>
                         <td>
-                          {product.categories.length > 0
-                            ? product.categories
-                                .map((category) => category.category_name)
-                                .join(", ")
-                            : "No categories"}
+                          {product.categories &&
+                            product.categories
+                              .map((category) => category.category_name)
+                              .join(", ")}
                         </td>
-                        <td>{product.product_price}</td>
-                        <td>{product.status === 1 ? "Inactive" : "Active"}</td>
+                        <td>{formatRupiah(product.product_price.toString())}</td>
+                        <td>{product.product_qty}</td>
+                        <td>{product.product_status === 1 ? "Active" : "Inactive"}</td>
                         <td>
                           <button
                             className="btn btn-sm btn-primary"
@@ -460,21 +518,187 @@ export default function ProductsViewResult() {
       </div>
 
       <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
+      <Modal.Header closeButton>
+        <Modal.Title>Create Product</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Formik
+          initialValues={{
+            product_name: "",
+            product_price: 0,
+            product_qty: 0,
+            product_status: 1,
+            categories: [],
+            images: [],
+          }}
+          validationSchema={productSchema}
+          onSubmit={handleCreateProduct}
+        >
+          {({ touched, errors, isSubmitting, setFieldValue }) => (
+            <FormikForm>
+              {/* Nama Produk */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  Name<span style={{ color: "red" }}>*</span>
+                </Form.Label>
+                <Field
+                  type="text"
+                  name="product_name"
+                  className={`form-control ${
+                    touched.product_name && errors.product_name
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                />
+                <ErrorMessage
+                  name="product_name"
+                  component="div"
+                  className="text-danger"
+                />
+              </Form.Group>
+
+              {/* Harga Produk */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  Price<span style={{ color: "red" }}>*</span>
+                </Form.Label>
+                <Field
+                  type="number"
+                  name="product_price"
+                  className={`form-control ${
+                    touched.product_price && errors.product_price
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                />
+                <ErrorMessage
+                  name="product_price"
+                  component="div"
+                  className="text-danger"
+                />
+              </Form.Group>
+
+              {/* Kuantitas Produk */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  Quantity<span style={{ color: "red" }}>*</span>
+                </Form.Label>
+                <Field
+                  type="number"
+                  name="product_qty"
+                  className={`form-control ${
+                    touched.product_qty && errors.product_qty
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                />
+                <ErrorMessage
+                  name="product_qty"
+                  component="div"
+                  className="text-danger"
+                />
+              </Form.Group>
+
+              {/* Kategori Produk */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  Category<span style={{ color: "red" }}>*</span>
+                </Form.Label>
+                <Select
+                  isMulti
+                  options={categories.map((cat) => ({
+                    value: cat.category_id,
+                    label: cat.category_name,
+                  }))}
+                  className="react-select"
+                  classNamePrefix="react-select"
+                  onChange={(selectedOptions) =>
+                    setFieldValue(
+                      "categories",
+                      selectedOptions.map((option) => option.value)
+                    )
+                  }
+                />
+                <ErrorMessage
+                  name="categories"
+                  component="div"
+                  className="text-danger"
+                />
+              </Form.Group>
+
+              {/* Gambar Produk */}
+              <Form.Group className="mb-3">
+                <Form.Label>Product Images</Form.Label>
+                <input
+                  type="file"
+                  multiple
+                  className="form-control"
+                  onChange={(e) => handleImageChange(e, setFieldValue)}
+                />
+              </Form.Group>
+
+              {/* Preview Gambar */}
+              {imagePreviews.length > 0 && (
+                <div className="mb-3">
+                  <Form.Label>Preview Images:</Form.Label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {imagePreviews.map((preview, index) => (
+                      <img
+                        key={index}
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        style={{
+                          width: "100px",
+                          height: "100px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tombol Aksi */}
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Creating..." : "Create"}
+                </Button>
+              </Modal.Footer>
+            </FormikForm>
+          )}
+        </Formik>
+      </Modal.Body>
+    </Modal>
+
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Create Product</Modal.Title>
+          <Modal.Title>Edit Product</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {editingProduct && (
           <Formik
             initialValues={{
-              product_name: "",
-              product_price: 0,
-              product_qty: 0,
-              product_status: 1,
+              product_name: editingProduct.product_name || "",
+              product_price: editingProduct.product_price || 0,
+              product_qty: editingProduct.product_qty || 0,
+              product_status: editingProduct.product_status || 1,
               categories: [],
-              images: [],
+              images: [], // tidak perlu menyertakan gambar lama karena gambar baru akan di-upload
             }}
             validationSchema={productSchema}
-            onSubmit={handleCreateProduct}
+            onSubmit={handleEditProduct}
           >
             {({ touched, errors, isSubmitting, setFieldValue }) => (
               <FormikForm>
@@ -599,17 +823,38 @@ export default function ProductsViewResult() {
                     type="file"
                     multiple
                     className="form-control"
-                    onChange={(e) =>
-                      setFieldValue("images", Array.from(e.target.files || []))
-                    }
+                    onChange={(e) => handleImageChange(e, setFieldValue)}
                   />
                 </Form.Group>
+
+              {/* Preview Gambar */}
+              {imagePreviews.length > 0 && (
+                <div className="mb-3">
+                  <Form.Label>Preview Images:</Form.Label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {imagePreviews.map((preview, index) => (
+                      <img
+                        key={index}
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        style={{
+                          width: "100px",
+                          height: "100px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
                 {/* Tombol Aksi */}
                 <Modal.Footer>
                   <Button
                     variant="secondary"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => setShowEditModal(false)}
                   >
                     Cancel
                   </Button>
@@ -618,91 +863,12 @@ export default function ProductsViewResult() {
                     type="submit"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "Creating..." : "Create"}
+                    {isSubmitting ? "Saving..." : "Save Changes"}
                   </Button>
                 </Modal.Footer>
               </FormikForm>
             )}
           </Formik>
-        </Modal.Body>
-      </Modal>
-
-      {/* Modal Edit Product */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Edit Product</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {editingProduct && (
-            <Formik
-              initialValues={{
-                product_name: editingProduct.product_name,
-                category: editingProduct.category,
-                price: editingProduct.price,
-              }}
-              validationSchema={productSchema}
-              onSubmit={handleEditProduct}
-            >
-              {({ touched, errors, isSubmitting }) => (
-                <FormikForm>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Name</Form.Label>
-                    <Field
-                      type="text"
-                      name="product_name"
-                      className="form-control"
-                    />
-                    <ErrorMessage
-                      name="product_name"
-                      component="div"
-                      className="text-danger"
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Category<span style={{ color: "red" }}>*</span>
-                    </Form.Label>
-                    <Field as="select" name="category" className="form-control">
-                      <option value="">Select Category</option>
-                      {categories.map((cat) => (
-                        <option key={cat.category_id} value={cat.category_id}>
-                          {cat.category_name}
-                        </option>
-                      ))}
-                    </Field>
-                    <ErrorMessage
-                      name="category"
-                      component="div"
-                      className="text-danger"
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Price</Form.Label>
-                    <Field type="text" name="price" className="form-control" />
-                    <ErrorMessage
-                      name="price"
-                      component="div"
-                      className="text-danger"
-                    />
-                  </Form.Group>
-                  <Modal.Footer>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setShowEditModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Updating..." : "Update"}
-                    </Button>
-                  </Modal.Footer>
-                </FormikForm>
-              )}
-            </Formik>
           )}
         </Modal.Body>
       </Modal>

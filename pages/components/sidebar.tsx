@@ -79,7 +79,7 @@ export default function SidebarView() {
           </a>
         </li>
         <li className="nav-item">
-          <a className="nav-link collapsed" href="/order-view">
+          <a className="nav-link collapsed" href="/orders">
             <i className="bi bi-bag"></i>
             <span>Order</span>
           </a>

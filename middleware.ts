@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Rute yang memerlukan autentikasi
-const protectedRoutes = ["/customers", "/dashboard", "/products", "/"];
+const protectedRoutes = ["/customers", "/dashboard", "/products", "/orders", "/"];
 
 export const getCookieValue = (): string | null => {
   // Mengambil semua cookies dalam bentuk string
@@ -35,13 +35,13 @@ export async function middleware(req: NextRequest) {
   }
 
   if (req.nextUrl.pathname === "/" && token) {
-    const previousUrl = req.headers.get("referer") || "/dashboard"; 
-    return NextResponse.redirect(new URL(previousUrl, req.url));
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/customers/:path*", "/products/:path*", "/"], // Terapkan middleware hanya untuk rute yang dilindungi
+  matcher: ["/dashboard/:path*", "/customers/:path*", "/products/:path*", "/orders/:path*"], // Terapkan middleware hanya untuk rute yang dilindungi
 };

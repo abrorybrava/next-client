@@ -44,19 +44,9 @@ export default function Register() {
   };
 
   return (
-    <section className="section register min-vh-100 d-flex flex-column align-items-center justify-content-center py-4">
       <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-lg-4 col-md-6 d-flex flex-column align-items-center justify-content-center">
-            <div className="d-flex justify-content-center py-4">
-              <a
-                href="index.html"
-                className="logo d-flex align-items-center w-auto">
-                <img src="assets/img/logo.png" alt="" />
-                <span className="d-none d-lg-block">NiceAdmin</span>
-              </a>
-            </div>
-
+        <div className="row">
+          <div className="col-lg-12 col-md-6 d-flex flex-column align-items-center ">
             <div className="card mb-3">
               <div className="card-body">
                 <div className="pt-4 pb-2">
@@ -74,7 +64,7 @@ export default function Register() {
                     email: "",
                     password: "",
                     confirmPassword: "",
-                    role: "user",
+                    role: "admin",
                   }}
                   validationSchema={registerSchema}
                   onSubmit={handleRegister}
@@ -154,12 +144,6 @@ export default function Register() {
                           {loading ? "Registering..." : "Register"}
                         </button>
                       </div>
-                      <div className="col-12">
-                        <p className="small mb-0">
-                          Already have an account?{" "}
-                          <a href="/">Login here</a>
-                        </p>
-                      </div>
                     </Form>
                   )}
                 </Formik>
@@ -168,6 +152,5 @@ export default function Register() {
           </div>
         </div>
       </div>
-    </section>
   );
 }

@@ -4,9 +4,10 @@ import { useSearchParams } from "next/navigation";
 import { Modal, Button, Form } from "react-bootstrap";
 import { useRouter } from "next/navigation";
 import { Formik, Field, Form as FormikForm, ErrorMessage } from "formik";
-import * as Yup from "yup";
 import { getCookieValue } from "@/middleware";
 import { customerSchema } from "@/utils/validationSchema";
+import axios from "axios";
+import useAuth from "@/utils/useAuth";
 
 interface Customer {
   customer_id: string;
@@ -33,7 +34,7 @@ export default function CustomersViewResult() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<keyof Customer | "">("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const router = useRouter();
+  const { user } = useAuth();
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -250,14 +251,16 @@ export default function CustomersViewResult() {
                 {successMessage && (
                   <div className="alert alert-success">{successMessage}</div>
                 )}
-                <div style={{ marginBottom: "20px" }}>
-                  <Button
-                    className="btn btn-primary"
-                    onClick={() => setShowCreateModal(true)}
-                  >
-                    Tambah Data Customer
-                  </Button>
-                </div>
+                {user?.role === "admin" && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <Button
+                      className="btn btn-primary"
+                      onClick={() => setShowCreateModal(true)}
+                    >
+                      Tambah Data Customer
+                    </Button>
+                  </div>
+                )}
                 <div className="col-md-6" style={{ marginBottom: "20px" }}>
                   <input
                     type="text"
@@ -297,7 +300,7 @@ export default function CustomersViewResult() {
                           (sortOrder === "asc" ? "↑" : "↓")}
                       </th>
                       <th>Status</th>
-                      <th>Action</th>
+                      {user?.role === "admin" && <th>Action</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -306,31 +309,37 @@ export default function CustomersViewResult() {
                         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                         <td>{customer.customer_name}</td>
                         <td>{customer.customer_email}</td>
-                        <td>{customer.customer_phone}</td>
-                        <td>{customer.status === 1 ? "Inactive" : "Active"}</td>
                         <td>
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => {
-                              setEditingCustomer(customer);
-                              setShowEditModal(true);
-                            }}
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          &nbsp;
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() =>
-                              handleDeleteClick(
-                                customer.customer_id,
-                                customer.customer_name
-                              )
-                            }
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
+                          {user?.role !== "admin"
+                            ? "*".repeat(customer.customer_phone.length) 
+                            : customer.customer_phone}{" "}
                         </td>
+                        <td>{customer.status === 1 ? "Inactive" : "Active"}</td>
+                        {user?.role === "admin" && (
+                          <td>
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={() => {
+                                setEditingCustomer(customer);
+                                setShowEditModal(true);
+                              }}
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            &nbsp;
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() =>
+                                handleDeleteClick(
+                                  customer.customer_id,
+                                  customer.customer_name
+                                )
+                              }
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
